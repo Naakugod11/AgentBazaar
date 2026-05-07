@@ -16,18 +16,18 @@ pub struct AgentAccount {
     pub endpoint: String,
     /// Suggested USDC price in micro-USDC (6 decimals), e.g. 1_000_000 = $1.
     pub price_hint: u64,
-    /// Saved so we can use it as a signer seed without re-deriving.
+    /// Saved so we can sign as this PDA without re-deriving the bump.
     pub bump: u8,
 }
 
 impl AgentAccount {
-    // 8 discriminator
+    // 8  discriminator (Anchor prepends this to every account)
     // 32 owner
-    // (4 + MAX_NAME_LEN) name
-    // (4 + MAX_CAPABILITY_LEN) capability
-    // (4 + MAX_ENDPOINT_LEN) endpoint
-    // 8 price_hint
-    // 1 bump
+    // (4 + MAX_NAME_LEN)       name:       4-byte length prefix + payload
+    // (4 + MAX_CAPABILITY_LEN) capability: same
+    // (4 + MAX_ENDPOINT_LEN)   endpoint:   same
+    // 8  price_hint
+    // 1  bump
     pub const SPACE: usize =
         8 + 32 + (4 + MAX_NAME_LEN) + (4 + MAX_CAPABILITY_LEN) + (4 + MAX_ENDPOINT_LEN) + 8 + 1;
     // = 285
@@ -37,28 +37,31 @@ impl AgentAccount {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub enum JobStatus {
-    Proposed,
-    Accepted,
-    Settled,
-    Cancelled,
+    Proposed,  // funds locked in escrow, awaiting provider response
+    Accepted,  // provider accepted, work in progress
+    Settled,   // provider delivered, funds released
+    Rejected,  // provider declined, funds refunded to consumer
+    Expired,   // offer window passed without acceptance, funds refunded to consumer
 }
 
 #[account]
 pub struct JobOffer {
-    /// Wallet that called propose_job.
+    /// Wallet that called propose_job. Also a PDA seed.
     pub consumer: Pubkey,
-    /// Wallet of the provider agent's owner (not the agent PDA).
+    /// Wallet of the provider agent's owner (not the agent PDA key).
     pub provider: Pubkey,
-    /// Caller-supplied 32-byte hash that uniquely identifies this job.
-    /// Also used as a PDA seed, so uniqueness is enforced by PDA collision.
+    /// Caller-supplied 32-byte unique identifier. Used as a PDA seed,
+    /// so uniqueness is enforced by PDA collision — the runtime rejects
+    /// a duplicate job_id for the same consumer.
     pub job_id: [u8; 32],
-    /// Amount of USDC (6 decimals) locked in escrow.
+    /// USDC amount locked in escrow, in micro-USDC (6 decimals).
     pub offer_amount: u64,
-    /// Unix timestamp after which the offer is considered expired.
+    /// Unix timestamp after which the offer auto-invalidates.
     pub expiry: i64,
     pub status: JobStatus,
     /// Hash of delivered work, written by release_escrow.
     pub result_hash: Option<[u8; 32]>,
+    /// Canonical PDA bump; saved so we can sign as this PDA in CPIs.
     pub bump: u8,
 }
 
@@ -66,12 +69,12 @@ impl JobOffer {
     // 8  discriminator
     // 32 consumer
     // 32 provider
-    // 32 job_id ([u8;32] — no length prefix, fixed array)
+    // 32 job_id ([u8;32] — fixed array, NO 4-byte length prefix)
     // 8  offer_amount
     // 8  expiry
-    // 1  status (fieldless enum → u8 variant tag)
-    // 33 result_hash (Option<[u8;32]> → 1 tag byte + 32 payload)
+    // 1  status (fieldless enum → single u8 variant tag; 5 variants fit in u8)
+    // 33 result_hash (Option<[u8;32]> → 1 tag byte + 32 payload, always 33 allocated)
     // 1  bump
     pub const SPACE: usize = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 33 + 1;
-    // = 155
+    // = 155 — unchanged; adding enum variants doesn't change the byte width
 }

@@ -46,4 +46,12 @@ pub mod agent_bazaar {
     ) -> Result<()> {
         instructions::release_escrow::handler(ctx, job_id, result_hash)
     }
+
+    pub fn reject_job(ctx: Context<RejectJob>, job_id: [u8; 32]) -> Result<()> {
+        instructions::reject_job::handler(ctx, job_id)
+    }
+
+    pub fn cancel_expired_job(ctx: Context<CancelExpiredJob>, job_id: [u8; 32]) -> Result<()> {
+        instructions::cancel_expired_job::handler(ctx, job_id)
+    }
 }

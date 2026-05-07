@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use crate::state::JobOffer;
 
 #[derive(Accounts)]
+#[instruction(job_id: [u8; 32])]
 pub struct AcceptJob<'info> {
     pub provider: Signer<'info>,
 }

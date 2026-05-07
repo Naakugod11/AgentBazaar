@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use crate::state::{AgentAccount, JobOffer};
 
 #[derive(Accounts)]
+#[instruction(job_id: [u8; 32])]
 pub struct ProposeJob<'info> {
     pub consumer: Signer<'info>,
     pub system_program: Program<'info, System>,
