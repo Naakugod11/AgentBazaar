@@ -6,6 +6,7 @@ pub mod state;
 use anchor_lang::prelude::*;
 
 pub use constants::*;
+pub use error::*;
 pub use instructions::*;
 pub use state::*;
 
@@ -15,7 +16,34 @@ declare_id!("DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b");
 pub mod agent_bazaar {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
+    pub fn register_agent(
+        ctx: Context<RegisterAgent>,
+        name: String,
+        capability: String,
+        endpoint: String,
+        price_hint: u64,
+    ) -> Result<()> {
+        instructions::register_agent::handler(ctx, name, capability, endpoint, price_hint)
+    }
+
+    pub fn propose_job(
+        ctx: Context<ProposeJob>,
+        job_id: [u8; 32],
+        offer_amount: u64,
+        expiry: i64,
+    ) -> Result<()> {
+        instructions::propose_job::handler(ctx, job_id, offer_amount, expiry)
+    }
+
+    pub fn accept_job(ctx: Context<AcceptJob>, job_id: [u8; 32]) -> Result<()> {
+        instructions::accept_job::handler(ctx, job_id)
+    }
+
+    pub fn release_escrow(
+        ctx: Context<ReleaseEscrow>,
+        job_id: [u8; 32],
+        result_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::release_escrow::handler(ctx, job_id, result_hash)
     }
 }
