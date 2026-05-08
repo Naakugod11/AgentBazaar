@@ -45,6 +45,16 @@ function randomJobId(): number[] {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const nowSec = () => Math.floor(Date.now() / 1000);
 
+// Returns the validator's current unix_timestamp. Use this instead of nowSec()
+// when setting on-chain deadlines — surfpool's clock can lag JS wall time by
+// 10-30s on a cold start, causing JobNotExpired failures even after sleeping.
+async function chainNow(connection: web3.Connection): Promise<number> {
+  const slot = await connection.getSlot("confirmed");
+  const t = await connection.getBlockTime(slot);
+  if (t === null) throw new Error("getBlockTime returned null");
+  return t;
+}
+
 // Anchor 1.0's TypeScript .accounts() type uses a strict union that rejects
 // object literals with multiple properties via excess property checking.
 // Cast through `any` — runtime behavior is correct; we lose TS checking only
@@ -329,8 +339,9 @@ describe("agent-bazaar", () => {
       jobOffer = jobOfferPda(consumerWallet.publicKey, jobId);
       escrow = escrowAta(jobOffer, usdcMint);
 
+      const now1 = await chainNow(conn);
       await program.methods
-        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(nowSec() + 8), new BN(nowSec() + 60))
+        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(now1 + 8), new BN(now1 + 60))
         .accounts(accs({
           jobOffer,
           escrowTokenAccount: escrow,
@@ -345,9 +356,7 @@ describe("agent-bazaar", () => {
         .signers([consumerWallet])
         .rpc();
 
-      // The localnet validator clock lags JS time by 1-2s. Use acceptance_deadline=+2
-      // and sleep 6s so we have at least 4s of real clock advancement as margin.
-      console.log("  waiting 6s for acceptance_deadline to pass...");
+      console.log("  waiting 10s for acceptance_deadline to pass...");
       await sleep(10000);
     });
 
@@ -394,9 +403,10 @@ describe("agent-bazaar", () => {
       escrow = escrowAta(jobOffer, usdcMint);
 
       // delivery_deadline MUST be > acceptance_deadline (program enforces this).
-      // Keep both short: accept within 3s, then wait past delivery at +6s.
+      // Keep both short: accept within 3s, then wait past delivery at +14s.
+      const now2 = await chainNow(conn);
       await program.methods
-        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(nowSec() + 8), new BN(nowSec() + 14))
+        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(now2 + 8), new BN(now2 + 14))
         .accounts(accs({
           jobOffer,
           escrowTokenAccount: escrow,
@@ -417,9 +427,7 @@ describe("agent-bazaar", () => {
         .signers([providerWallet])
         .rpc();
 
-      // Same validator clock lag as test 1. delivery_deadline=+6, sleep 9s gives
-      // at least 7s of real advancement as margin.
-      console.log("  provider accepted; waiting 9s for delivery_deadline to pass...");
+      console.log("  provider accepted; waiting 16s for delivery_deadline to pass...");
       await sleep(16000);
     });
 
