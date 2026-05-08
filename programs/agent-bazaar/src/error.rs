@@ -16,12 +16,11 @@ pub enum AgentBazaarError {
     #[msg("Offer amount must be greater than zero")]
     ZeroAmount,
 
-    #[msg("Expiry must be in the future")]
-    ExpiryInPast,
+    /// Fired when acceptance_deadline <= now OR delivery_deadline <= acceptance_deadline.
+    #[msg("Deadlines invalid: acceptance must be in the future, delivery must be after acceptance")]
+    InvalidDeadlines,
 
     // ── Authorization ─────────────────────────────────────────────────────────
-    /// Fires when the signer is not the provider stored in the JobOffer.
-    /// Also used as the target of `has_one = provider @ AgentBazaarError::InvalidProvider`.
     #[msg("Signer is not the provider for this job")]
     InvalidProvider,
 
@@ -35,11 +34,16 @@ pub enum AgentBazaarError {
     #[msg("Job is not in Accepted state")]
     JobNotAccepted,
 
+    /// Fired by cancel_expired_job when the job is in a terminal state
+    /// (Settled, Rejected, or already Expired) that cannot be cancelled.
+    #[msg("Job is not in a cancellable state (must be Proposed or Accepted)")]
+    JobNotCancellable,
+
     // ── Timing ────────────────────────────────────────────────────────────────
-    #[msg("Job offer has expired")]
+    #[msg("Job offer deadline has passed")]
     JobExpired,
 
-    #[msg("Job offer has not expired yet")]
+    #[msg("Deadline has not passed yet")]
     JobNotExpired,
 
     // ── Token ─────────────────────────────────────────────────────────────────

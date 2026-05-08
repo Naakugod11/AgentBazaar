@@ -133,21 +133,22 @@ pub fn handler(
     ctx: Context<ProposeJob>,
     job_id: [u8; 32],
     offer_amount: u64,
-    expiry: i64,
+    acceptance_deadline: i64,
+    delivery_deadline: i64,
 ) -> Result<()> {
     let clock = Clock::get()?;
 
-    // Validate before any state writes or CPIs.
     require!(offer_amount > 0, AgentBazaarError::ZeroAmount);
+    // Both deadline checks collapsed into one error: acceptance must be in
+    // the future, and delivery must come after acceptance.
     require!(
-        expiry > clock.unix_timestamp,
-        AgentBazaarError::ExpiryInPast
+        acceptance_deadline > clock.unix_timestamp
+            && delivery_deadline > acceptance_deadline,
+        AgentBazaarError::InvalidDeadlines
     );
 
     // Explicit balance check for a clean error message. The CPI would also
-    // fail on insufficient funds, but with a generic SPL token error that
-    // surfaces as a raw program error code in the client, not our custom
-    // InsufficientFunds variant.
+    // fail here, but with a generic SPL token error code, not InsufficientFunds.
     require!(
         ctx.accounts.consumer_token_account.amount >= offer_amount,
         AgentBazaarError::InsufficientFunds
@@ -155,11 +156,9 @@ pub fn handler(
 
     // ── CPI: lock funds in escrow ────────────────────────────────────────────
     //
-    // The consumer is signing this transaction, which means they implicitly
-    // authorize transfers FROM their own ATA. The token program accepts a
-    // transfer when the authority account is a signer of the transaction.
-    // No `approve` call needed — the consumer is the authority and they're
-    // signing right now.
+    // Consumer is the signer of this tx. The Token Program allows a transfer
+    // FROM a token account when the authority field matches a tx signer.
+    // No separate `approve` call needed.
     token::transfer(
         CpiContext::new(
             ctx.accounts.token_program.key(),
@@ -173,23 +172,17 @@ pub fn handler(
     )?;
 
     // ── Write job offer state ────────────────────────────────────────────────
-    //
-    // We write state AFTER the CPI. If the CPI fails, the transaction rolls
-    // back and none of this state is committed anyway — but this ordering
-    // makes the intent explicit: only record the job if funds actually moved.
     let job_offer = &mut ctx.accounts.job_offer;
     job_offer.consumer = ctx.accounts.consumer.key();
-    // Store the provider's WALLET pubkey (agent.owner), not the agent PDA key.
-    // This is what accept_job checks: `has_one = provider` matches the signer's
-    // wallet key against job_offer.provider.
+    // Store provider's WALLET pubkey (agent.owner), not the agent PDA key.
+    // has_one = provider in downstream instructions checks signer.key() against this.
     job_offer.provider = ctx.accounts.provider_agent.owner;
     job_offer.job_id = job_id;
     job_offer.offer_amount = offer_amount;
-    job_offer.expiry = expiry;
+    job_offer.acceptance_deadline = acceptance_deadline;
+    job_offer.delivery_deadline = delivery_deadline;
     job_offer.status = JobStatus::Proposed;
-    // None until release_escrow is called with the delivery receipt.
     job_offer.result_hash = None;
-    // Canonical bump saved for signing as this PDA in the escrow-release CPIs.
     job_offer.bump = ctx.bumps.job_offer;
 
     Ok(())

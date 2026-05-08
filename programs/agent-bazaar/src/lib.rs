@@ -30,9 +30,16 @@ pub mod agent_bazaar {
         ctx: Context<ProposeJob>,
         job_id: [u8; 32],
         offer_amount: u64,
-        expiry: i64,
+        acceptance_deadline: i64,
+        delivery_deadline: i64,
     ) -> Result<()> {
-        instructions::propose_job::handler(ctx, job_id, offer_amount, expiry)
+        instructions::propose_job::handler(
+            ctx,
+            job_id,
+            offer_amount,
+            acceptance_deadline,
+            delivery_deadline,
+        )
     }
 
     pub fn accept_job(ctx: Context<AcceptJob>, job_id: [u8; 32]) -> Result<()> {
