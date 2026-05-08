@@ -58,4 +58,5 @@ pnpm-debug.log*
 # === Misc ===
 *.tmp
 .cache/
-coverage/**/.wallet.json
+coverage/
+**/.wallet.json

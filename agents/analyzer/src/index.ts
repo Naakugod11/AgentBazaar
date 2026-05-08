@@ -194,6 +194,9 @@ app.post("/analyze", async (c) => {
 
   // ── 3. Extract wallet address from question and analyze ──
   const addressMatch = question.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
+  if (!addressMatch) {
+    console.warn(`[analyzer] No wallet address in question, falling back to consumer: ${consumerStr}`);
+  }
   const targetWallet = addressMatch ? addressMatch[0] : consumerStr;
 
   console.log(`[analyzer] Analyzing wallet: ${targetWallet}`);

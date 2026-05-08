@@ -119,7 +119,15 @@ async function toolCallPaidAgent(
   const offer = requirements.accepts?.[0];
   if (!offer) throw new Error("x402: no payment offer in 402 response");
 
+  if (offer.asset !== usdcMint.toBase58()) {
+    throw new Error(`x402: agent requested unknown asset ${offer.asset}, expected ${usdcMint.toBase58()}`);
+  }
+
   const amountUsdc = Number(offer.maxAmountRequired) / 1_000_000;
+  if (amountUsdc > 1.0) {
+    throw new Error(`x402: agent requested ${amountUsdc} USDC, exceeds safety cap of 1.0 USDC`);
+  }
+
   console.log(
     `[researcher] 402 received — required: ${amountUsdc} USDC → ${offer.payTo.slice(0, 8)}...`
   );
@@ -193,7 +201,9 @@ async function run() {
     "Always ground your answer in the actual wallet data you received.";
 
   // Agentic loop: keep calling Claude until stop_reason is 'end_turn'.
-  while (true) {
+  const MAX_ITERATIONS = 10;
+  let iterations = 0;
+  while (iterations++ < MAX_ITERATIONS) {
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001", // fast + cheap for the loop
       max_tokens: 4096,

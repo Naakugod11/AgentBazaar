@@ -129,6 +129,12 @@ async function main() {
     if (code !== 0 && code !== 143) console.error(`  [analyzer] exited unexpectedly (code ${code})`);
   });
 
+  // Clean up analyzer on Ctrl+C so port 3001 is released immediately.
+  process.on("SIGINT", () => {
+    if (analyzerAlive) analyzer.kill();
+    process.exit(1);
+  });
+
   console.log("  Waiting for http://localhost:3001/health ...");
   try {
     await waitForServer("http://localhost:3001/health");
