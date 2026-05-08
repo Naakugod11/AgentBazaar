@@ -330,7 +330,7 @@ describe("agent-bazaar", () => {
       escrow = escrowAta(jobOffer, usdcMint);
 
       await program.methods
-        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(nowSec() + 2), new BN(nowSec() + 60))
+        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(nowSec() + 8), new BN(nowSec() + 60))
         .accounts(accs({
           jobOffer,
           escrowTokenAccount: escrow,
@@ -348,7 +348,7 @@ describe("agent-bazaar", () => {
       // The localnet validator clock lags JS time by 1-2s. Use acceptance_deadline=+2
       // and sleep 6s so we have at least 4s of real clock advancement as margin.
       console.log("  waiting 6s for acceptance_deadline to pass...");
-      await sleep(6000);
+      await sleep(10000);
     });
 
     it("cancel_expired_job (Proposed): status=Expired, USDC refunded", async () => {
@@ -396,7 +396,7 @@ describe("agent-bazaar", () => {
       // delivery_deadline MUST be > acceptance_deadline (program enforces this).
       // Keep both short: accept within 3s, then wait past delivery at +6s.
       await program.methods
-        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(nowSec() + 3), new BN(nowSec() + 6))
+        .proposeJob(jobId, new BN(OFFER_AMOUNT), new BN(nowSec() + 8), new BN(nowSec() + 14))
         .accounts(accs({
           jobOffer,
           escrowTokenAccount: escrow,
@@ -420,7 +420,7 @@ describe("agent-bazaar", () => {
       // Same validator clock lag as test 1. delivery_deadline=+6, sleep 9s gives
       // at least 7s of real advancement as margin.
       console.log("  provider accepted; waiting 9s for delivery_deadline to pass...");
-      await sleep(9000);
+      await sleep(16000);
     });
 
     it("cancel_expired_job (Accepted): status=Expired, USDC refunded to consumer", async () => {
