@@ -98,7 +98,11 @@ export function ChainStoreProvider({ children }: { children: React.ReactNode }) 
         };
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setJobs(rawJobs.map((j: any) => ({
+        const sorted = [...rawJobs].sort((a: any, b: any) =>
+          (b.account.acceptanceDeadline as BN).toNumber() -
+          (a.account.acceptanceDeadline as BN).toNumber()
+        );
+        setJobs(sorted.map((j: any) => ({
           id:       trunc(j.publicKey.toBase58()),
           consumer: nameOrTrunc(j.account.consumer),
           provider: nameOrTrunc(j.account.provider),
