@@ -48,19 +48,21 @@ function formatTime(unixSeconds: number): string {
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 type ChainState = {
-  agents:  AgentRow[];
-  jobs:    TradeRow[];
-  loading: boolean;
+  agents:    AgentRow[];
+  jobs:      TradeRow[];
+  loading:   boolean;
+  lastUpdate: number | null;
 };
 
 const ChainContext = createContext<ChainState>({
-  agents: [], jobs: [], loading: true,
+  agents: [], jobs: [], loading: true, lastUpdate: null,
 });
 
 export function ChainStoreProvider({ children }: { children: React.ReactNode }) {
-  const [agents,  setAgents]  = useState<AgentRow[]>([]);
-  const [jobs,    setJobs]    = useState<TradeRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [agents,     setAgents]     = useState<AgentRow[]>([]);
+  const [jobs,       setJobs]       = useState<TradeRow[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
 
   useEffect(() => {
     const program    = getReadProgram();
@@ -110,8 +112,9 @@ export function ChainStoreProvider({ children }: { children: React.ReactNode }) 
           status:   parseStatus(j.account.status),
           time:     formatTime((j.account.acceptanceDeadline as BN).toNumber() - 120),
         })));
+        setLastUpdate(Date.now());
       } catch (err) {
-        console.error('[ChainStore] fetch error:', err);
+        console.error('[ChainStore] fetch error — will retry in 5s:', err);
       } finally {
         setLoading(false);
       }
@@ -136,7 +139,7 @@ export function ChainStoreProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   return (
-    <ChainContext.Provider value={{ agents, jobs, loading }}>
+    <ChainContext.Provider value={{ agents, jobs, loading, lastUpdate }}>
       {children}
     </ChainContext.Provider>
   );
@@ -152,4 +155,8 @@ export function useAgents() {
 export function useJobs() {
   const { jobs, loading } = useContext(ChainContext);
   return { jobs, loading };
+}
+
+export function useLastUpdate() {
+  return useContext(ChainContext).lastUpdate;
 }

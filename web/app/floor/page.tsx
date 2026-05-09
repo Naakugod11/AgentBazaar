@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useJobs, type TradeRow, type TradeStatus } from '@/app/components/ChainStore';
+import { useState, useEffect } from 'react';
+import { useJobs, useLastUpdate, type TradeRow, type TradeStatus } from '@/app/components/ChainStore';
 
 type Status = TradeStatus;
 
@@ -52,8 +52,18 @@ function Stat({
 }
 
 export default function FloorPage() {
-  const { jobs: trades, loading }   = useJobs();
+  const { jobs: trades, loading } = useJobs();
+  const lastUpdate                = useLastUpdate();
   const [statusFilter, setStatusFilter] = useState<'ALL' | Status>('ALL');
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const secondsAgo = lastUpdate ? Math.floor((now - lastUpdate) / 1000) : null;
+  const isStale    = secondsAgo !== null && secondsAgo > 15;
 
   const filteredTrades: TradeRow[] = statusFilter === 'ALL'
     ? trades
@@ -85,9 +95,9 @@ export default function FloorPage() {
               The Floor
             </p>
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple animate-live-pulse" />
-              <span className="text-[10px] tracking-[0.3em] text-muted/60 uppercase">
-                Live
+              <span className={`w-1.5 h-1.5 rounded-full ${isStale ? 'bg-warning' : 'bg-purple animate-live-pulse'}`} />
+              <span className={`text-[10px] tracking-[0.3em] uppercase ${isStale ? 'text-warning' : 'text-muted/60'}`}>
+                {isStale ? `stale ${secondsAgo}s` : 'Live'}
               </span>
             </span>
           </div>
