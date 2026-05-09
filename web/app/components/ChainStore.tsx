@@ -115,15 +115,19 @@ export function ChainStoreProvider({ children }: { children: React.ReactNode }) 
 
     fetchAll();
 
-    // Re-fetch whenever any program-owned account changes
+    // WebSocket subscription — fires instantly when an account changes
     const subId = connection.onProgramAccountChange(
       PROGRAM_ID,
       () => { fetchAll(); },
       'confirmed',
     );
 
+    // Polling fallback — public devnet RPC WebSocket is unreliable
+    const pollId = setInterval(fetchAll, 5_000);
+
     return () => {
       connection.removeProgramAccountChangeListener(subId);
+      clearInterval(pollId);
     };
   }, []);
 
