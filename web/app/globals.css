@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0a1a;
+  --purple: #7c3aed;
+  --blue: #3b82f6;
+  --fg: #f8fafc;
+  --muted: #64748b;
+  --success: #10b981;
+  --warning: #f59e0b;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-purple: var(--purple);
+  --color-blue: var(--blue);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --font-sans: var(--font-inter);
+
+  --animate-float:      float 9s ease-in-out infinite;
+  --animate-float-slow: float-slow 13s ease-in-out infinite;
+  --animate-slide-up:   slide-up-fade 0.5s ease-out both;
+  --animate-live-pulse: live-pulse 2s ease-in-out infinite;
+  --animate-ticker:     ticker-scroll 25s linear infinite;
+}
+
+/* ── Keyframes ──────────────────────────────────────────────── */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  33%       { transform: translateY(-32px) scale(1.04); }
+  66%       { transform: translateY(16px) scale(0.97); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) translateX(0px); }
+  40%      { transform: translateY(22px) translateX(-14px); }
+  70%      { transform: translateY(-12px) translateX(10px); }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% center; }
+  50%      { background-position: 100% center; }
+}
+
+/*
+ * Four-point orbit through the 400%×400% gradient canvas.
+ * Gives the mesh a slow, looping Northern Lights feel.
+ */
+@keyframes mesh-shift {
+  0%   { background-position: 0%   50%; }
+  25%  { background-position: 100% 0%;  }
+  50%  { background-position: 100% 100%; }
+  75%  { background-position: 0%   100%; }
+  100% { background-position: 0%   50%; }
+}
+
+/*
+ * Ticker — animates from 0 to -50% so the duplicated second half
+ * snaps seamlessly back to the start position.
+ */
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@keyframes dot-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 0 -160px; }
+}
+
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.55);
+  }
+  50% {
+    transform: scale(1.3);
+    box-shadow: 0 0 0 7px rgba(124, 58, 237, 0);
+  }
+}
+
+/* ── Plain CSS classes ──────────────────────────────────────── */
+
+/*
+ * Animated gradient text.
+ * background-position is not animatable via Tailwind arbitrary values,
+ * so the full rule lives here.
+ */
+.animated-gradient-text {
+  background: linear-gradient(90deg, #7c3aed, #3b82f6, #a78bfa, #3b82f6, #7c3aed);
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: gradient-shift 5s ease-in-out infinite;
+}
+
+/*
+ * Dot grid — background-size must be co-located with the animation
+ * so the drift repeats at exactly the right interval (5 × 32px = 160px).
+ */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(124, 58, 237, 0.18) 1px, transparent 1px);
+  background-size: 32px 32px;
+  animation: dot-drift 22s linear infinite;
+}
+
+/*
+ * Gradient mesh base layer — a large linear gradient at 400% size
+ * so that animating background-position pans through visibly distinct
+ * purple / blue / navy regions.
+ */
+.gradient-mesh {
+  background: linear-gradient(
+    125deg,
+    #0a0a1a 0%,
+    #16063b 18%,
+    #061638 36%,
+    #0a0a1a 50%,
+    #0d0a2e 66%,
+    #060f28 82%,
+    #0a0a1a 100%
+  );
+  background-size: 400% 400%;
+  animation: mesh-shift 20s ease-in-out infinite;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-inter), sans-serif;
+}
