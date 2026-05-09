@@ -1,68 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useJobs, type TradeRow, type TradeStatus } from '@/app/components/ChainStore';
 
-type Status = "ESCROWED" | "SETTLED" | "EXPIRED";
-
-type Trade = {
-  id: string;
-  consumer: string;
-  provider: string;
-  amount: string;
-  status: Status;
-  time: string;
-};
-
-const trades: Trade[] = [
-  {
-    id: "3xKf...7mNp",
-    consumer: "Token Researcher",
-    provider: "Price Oracle",
-    amount: "0.05",
-    status: "SETTLED",
-    time: "14:23:01",
-  },
-  {
-    id: "9mBw...2qRt",
-    consumer: "Wallet Analyzer",
-    provider: "Token Researcher",
-    amount: "0.12",
-    status: "ESCROWED",
-    time: "14:23:45",
-  },
-  {
-    id: "7vLp...4kSz",
-    consumer: "Price Oracle",
-    provider: "Wallet Analyzer",
-    amount: "0.02",
-    status: "SETTLED",
-    time: "14:24:12",
-  },
-  {
-    id: "1nHc...8xWq",
-    consumer: "Token Researcher",
-    provider: "Wallet Analyzer",
-    amount: "0.08",
-    status: "EXPIRED",
-    time: "14:24:55",
-  },
-  {
-    id: "5rGj...3fDm",
-    consumer: "Price Oracle",
-    provider: "Token Researcher",
-    amount: "0.05",
-    status: "ESCROWED",
-    time: "14:25:30",
-  },
-  {
-    id: "2pYa...6cVx",
-    consumer: "Wallet Analyzer",
-    provider: "Price Oracle",
-    amount: "0.15",
-    status: "SETTLED",
-    time: "14:25:47",
-  },
-];
+type Status = TradeStatus;
 
 const statusStyles: Record<Status, string> = {
   ESCROWED: "bg-purple/15 text-purple  border border-purple/30 shadow-[0_0_10px_rgba(124,58,237,0.45)]",
@@ -74,16 +15,6 @@ const statValueClass: Record<Status, string> = {
   ESCROWED: "text-purple",
   SETTLED:  "text-success",
   EXPIRED:  "text-warning",
-};
-
-const totalVol = trades
-  .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  .toFixed(2);
-
-const tally = {
-  ESCROWED: trades.filter((t) => t.status === "ESCROWED").length,
-  SETTLED:  trades.filter((t) => t.status === "SETTLED").length,
-  EXPIRED:  trades.filter((t) => t.status === "EXPIRED").length,
 };
 
 // TX(8rem) | Flow(1fr) | Amount(5.5rem) | Status(9rem) | Time(5rem)
@@ -121,11 +52,23 @@ function Stat({
 }
 
 export default function FloorPage() {
+  const { jobs: trades, loading }   = useJobs();
   const [statusFilter, setStatusFilter] = useState<'ALL' | Status>('ALL');
 
-  const filteredTrades = statusFilter === 'ALL'
+  const filteredTrades: TradeRow[] = statusFilter === 'ALL'
     ? trades
     : trades.filter((t) => t.status === statusFilter);
+
+  // Stats computed from all trades (not filtered)
+  const totalVol = trades
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
+    .toFixed(2);
+
+  const tally = {
+    ESCROWED: trades.filter((t) => t.status === 'ESCROWED').length,
+    SETTLED:  trades.filter((t) => t.status === 'SETTLED').length,
+    EXPIRED:  trades.filter((t) => t.status === 'EXPIRED').length,
+  };
 
   return (
     <main className="relative flex flex-1 flex-col bg-bg text-fg overflow-hidden">
@@ -148,6 +91,7 @@ export default function FloorPage() {
               </span>
             </span>
           </div>
+
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-fg">Trade Feed</h1>
             <select
@@ -164,11 +108,11 @@ export default function FloorPage() {
 
           {/* Stats strip */}
           <div className="flex flex-wrap gap-x-8 gap-y-2 p-4 rounded-lg bg-white/4 border border-white/8">
-            <Stat label="Vol" value={`${totalVol} USDC`} />
-            <Stat label="Trades" value={String(trades.length)} />
-            <Stat label="Escrowed" value={String(tally.ESCROWED)} valueClass={statValueClass.ESCROWED} />
-            <Stat label="Settled"  value={String(tally.SETTLED)}  valueClass={statValueClass.SETTLED} />
-            <Stat label="Expired"  value={String(tally.EXPIRED)}  valueClass={statValueClass.EXPIRED} />
+            <Stat label="Vol"      value={loading ? '…' : `${totalVol} USDC`} />
+            <Stat label="Trades"   value={loading ? '…' : String(trades.length)} />
+            <Stat label="Escrowed" value={loading ? '…' : String(tally.ESCROWED)} valueClass={statValueClass.ESCROWED} />
+            <Stat label="Settled"  value={loading ? '…' : String(tally.SETTLED)}  valueClass={statValueClass.SETTLED} />
+            <Stat label="Expired"  value={loading ? '…' : String(tally.EXPIRED)}  valueClass={statValueClass.EXPIRED} />
           </div>
         </div>
 
@@ -187,35 +131,45 @@ export default function FloorPage() {
               </div>
 
               {/* Trade rows */}
-              {filteredTrades.map((trade, i) => (
-                <div
-                  key={trade.id}
-                  className={[
-                    ROW,
-                    "px-5 py-4",
-                    "animate-slide-up",
-                    i < filteredTrades.length - 1 ? "border-b border-white/6" : "",
-                    "hover:bg-white/4 transition-colors",
-                  ].join(" ")}
-                  style={{ animationDelay: `${i * 0.07}s` }}
-                >
-                  <span className="font-mono text-[10px] text-muted/40 tracking-wide">
-                    {trade.id}
-                  </span>
-                  <span className="font-mono text-[11px] text-fg/80 truncate pr-2">
-                    {trade.consumer}{" "}
-                    <span className="text-muted/40">→</span>{" "}
-                    {trade.provider}
-                  </span>
-                  <span className="font-mono text-[11px] text-fg tabular-nums">
-                    {trade.amount}
-                  </span>
-                  <StatusPill status={trade.status} />
-                  <span className="font-mono text-[10px] text-muted/50 tabular-nums text-right">
-                    {trade.time}
-                  </span>
+              {loading && filteredTrades.length === 0 ? (
+                <div className="px-5 py-8 text-center">
+                  <span className="font-mono text-[10px] text-muted/40">Fetching trades from devnet…</span>
                 </div>
-              ))}
+              ) : filteredTrades.length === 0 ? (
+                <div className="px-5 py-8 text-center">
+                  <span className="font-mono text-[10px] text-muted/40">No trades match this filter.</span>
+                </div>
+              ) : (
+                filteredTrades.map((trade, i) => (
+                  <div
+                    key={trade.id}
+                    className={[
+                      ROW,
+                      "px-5 py-4",
+                      "animate-slide-up",
+                      i < filteredTrades.length - 1 ? "border-b border-white/6" : "",
+                      "hover:bg-white/4 transition-colors",
+                    ].join(" ")}
+                    style={{ animationDelay: `${i * 0.07}s` }}
+                  >
+                    <span className="font-mono text-[10px] text-muted/40 tracking-wide">
+                      {trade.id}
+                    </span>
+                    <span className="font-mono text-[11px] text-fg/80 truncate pr-2">
+                      {trade.consumer}{" "}
+                      <span className="text-muted/40">→</span>{" "}
+                      {trade.provider}
+                    </span>
+                    <span className="font-mono text-[11px] text-fg tabular-nums">
+                      {trade.amount}
+                    </span>
+                    <StatusPill status={trade.status} />
+                    <span className="font-mono text-[10px] text-muted/50 tabular-nums text-right">
+                      {trade.time}
+                    </span>
+                  </div>
+                ))
+              )}
 
               {/* Feed tail */}
               <div className="px-5 py-3 bg-white/2 border-t border-white/6">

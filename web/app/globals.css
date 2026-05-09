@@ -134,6 +134,40 @@
   animation: mesh-shift 20s ease-in-out infinite;
 }
 
+/* ── Wallet adapter button ──────────────────────────────────── */
+
+/*
+ * Override the default wallet-adapter styles to match our dark purple UI.
+ * The .wallet-nav-btn class is passed as className to WalletMultiButton.
+ */
+.wallet-nav-btn.wallet-adapter-button,
+.wallet-nav-btn.wallet-adapter-button-trigger {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  color: #a78bfa;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 16px;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.wallet-nav-btn.wallet-adapter-button:hover:not([disabled]),
+.wallet-nav-btn.wallet-adapter-button-trigger:hover:not([disabled]) {
+  background: rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.65);
+}
+
+/* Hide the wallet icon inside the nav button */
+.wallet-nav-btn .wallet-adapter-button-start-icon {
+  display: none;
+}
+
 /* ── Base ───────────────────────────────────────────────────── */
 
 body {

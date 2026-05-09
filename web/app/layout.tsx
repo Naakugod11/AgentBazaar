@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Navbar from "./components/Navbar";
+import SolanaWalletProvider from "./components/WalletProvider";
+import { ChainStoreProvider } from "./components/ChainStore";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,8 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} h-full`}>
       <body className="min-h-full flex flex-col antialiased">
-        <Navbar />
-        {children}
+        <SolanaWalletProvider>
+          <ChainStoreProvider>
+            <Navbar />
+            {children}
+          </ChainStoreProvider>
+        </SolanaWalletProvider>
       </body>
     </html>
   );

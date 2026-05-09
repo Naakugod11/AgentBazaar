@@ -59,6 +59,15 @@ export default function Home() {
       {/* ── Hero content ────────────────────────────────────────── */}
       <div className="relative z-10 flex flex-col items-center text-center px-4 py-24 w-full max-w-screen-xl mx-auto">
 
+        {/* Logo icon */}
+        <div
+          className="animate-slide-up mb-8"
+          style={{ animationDelay: '0s' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="Agent Bazaar" width={80} height={80} className="animate-pulse" />
+        </div>
+
         {/* Live network indicator */}
         <div
           className="animate-slide-up flex items-center gap-2 mb-5"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAgents, type AgentRow } from '@/app/components/ChainStore';
 
 const FILTERS = ['All', 'Wallet Analysis', 'Token Research', 'Price Feeds', 'Other'] as const;
 type Filter = (typeof FILTERS)[number];
@@ -11,46 +12,7 @@ const FILTER_KEYWORD: Partial<Record<Filter, string>> = {
   'Price Feeds':     'price',
 };
 
-type Agent = {
-  id: string;
-  name: string;
-  capability: string;
-  endpoint: string;
-  price: string;
-  active: boolean;
-};
-
-const agents: Agent[] = [
-  {
-    id: "001",
-    name: "Token Researcher",
-    capability:
-      "Queries on-chain token metadata, holder distribution, and full supply history for any SPL token.",
-    endpoint: "https://api.agentbazaar.io/agents/token-researcher/v1/query",
-    price: "0.05",
-    active: true,
-  },
-  {
-    id: "002",
-    name: "Wallet Analyzer",
-    capability:
-      "Profiles wallet transaction history, counterparty relationships, and on-chain risk scoring.",
-    endpoint: "https://api.agentbazaar.io/agents/wallet-analyzer/v1/analyze",
-    price: "0.12",
-    active: false,
-  },
-  {
-    id: "003",
-    name: "Price Oracle",
-    capability:
-      "Real-time DEX price feeds, TWAP computation, and cross-pool liquidity depth aggregation.",
-    endpoint: "https://api.agentbazaar.io/agents/price-oracle/v1/quote",
-    price: "0.02",
-    active: true,
-  },
-];
-
-function AgentCard({ agent }: { agent: Agent }) {
+function AgentCard({ agent }: { agent: AgentRow }) {
   return (
     <article
       className={[
@@ -108,8 +70,9 @@ function AgentCard({ agent }: { agent: Agent }) {
 }
 
 export default function RegistryPage() {
-  const [search, setSearch]             = useState('');
-  const [activeFilter, setActiveFilter] = useState<Filter>('All');
+  const { agents, loading }                 = useAgents();
+  const [search, setSearch]                 = useState('');
+  const [activeFilter, setActiveFilter]     = useState<Filter>('All');
 
   const activeCount = agents.filter((a) => a.active).length;
 
@@ -141,13 +104,13 @@ export default function RegistryPage() {
       <div className="relative z-10 mx-auto w-full max-w-5xl px-6 md:px-16 py-20 flex flex-col flex-1">
 
         {/* Page header */}
-        <div className="mb-14">
+        <div className="mb-8">
           <p className="text-xs tracking-[0.35em] text-muted uppercase mb-4">
             Agent Registry
           </p>
           <h1 className="text-3xl font-bold text-fg mb-2">Registered Agents</h1>
           <p className="text-sm text-muted">
-            {agents.length} agents listed — {activeCount} active
+            {loading ? 'Loading…' : `${agents.length} agents listed — ${activeCount} active`}
           </p>
         </div>
 
@@ -190,9 +153,19 @@ export default function RegistryPage() {
 
         {/* Card grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-auto">
-          {filteredAgents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
-          ))}
+          {loading && agents.length === 0 ? (
+            <p className="col-span-full text-sm text-muted/50 text-center py-12">
+              Fetching agents from devnet…
+            </p>
+          ) : filteredAgents.length === 0 ? (
+            <p className="col-span-full text-sm text-muted/50 text-center py-12">
+              No agents match your search.
+            </p>
+          ) : (
+            filteredAgents.map((agent) => (
+              <AgentCard key={agent.id} agent={agent} />
+            ))
+          )}
         </div>
 
         {/* Footer */}

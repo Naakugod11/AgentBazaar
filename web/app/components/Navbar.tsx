@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 const LINKS = [
   { label: 'Home',        href: '/' },
@@ -13,40 +15,46 @@ const LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/8 bg-bg/85 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-6 md:px-16">
 
         {/* Logo */}
-        <Link
-          href="/"
-          className="[font-family:var(--font-jetbrains-mono)] text-[11px] font-semibold tracking-[0.32em] text-fg/90 uppercase hover:text-fg transition-colors"
-        >
-          Agent Bazaar
+        <Link href="/" className="hover:opacity-80 transition-opacity">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/wordmark-dark.svg" alt="Agent Bazaar" width={120} height={24} />
         </Link>
 
-        {/* Nav links */}
-        <nav className="flex items-center gap-7 md:gap-9">
-          {LINKS.map(({ label, href }) => {
-            const active = pathname === href;
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={[
-                  'font-mono text-[10px] tracking-[0.3em] uppercase transition-colors',
-                  'border-b-2 pb-px',                   // reserve underline space on all items
-                  active
-                    ? 'text-purple border-purple/70'
-                    : 'text-muted border-transparent hover:text-fg/80',
-                ].join(' ')}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Nav links + wallet */}
+        <div className="flex items-center gap-6 md:gap-8">
+          <nav className="flex items-center gap-7 md:gap-9">
+            {LINKS.map(({ label, href }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={[
+                    'font-mono text-[10px] tracking-[0.3em] uppercase transition-colors',
+                    'border-b-2 pb-px',
+                    active
+                      ? 'text-purple border-purple/70'
+                      : 'text-muted border-transparent hover:text-fg/80',
+                  ].join(' ')}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {mounted
+            ? <WalletMultiButton className="wallet-nav-btn" />
+            : <div className="h-9 w-[130px] rounded-lg" />}
+        </div>
 
       </div>
     </header>
