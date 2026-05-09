@@ -1,13 +1,15 @@
 # === Anchor / Solana ===
 .anchor/
-target/
-**/target/
+# Ignore target contents but not the directory itself so negations below work
+target/*
+# Rust target dirs inside program crates
+programs/**/target/
 *.so
 test-ledger/
 .crates.toml
 .crates2.json
 
-# Keep the IDL committed — SDK teammate needs it
+# IDL and generated TS types must be committed — SDK teammate needs them
 !target/idl/
 !target/types/
 

@@ -186,7 +186,8 @@ async function main() {
   for (const p of providers) {
     p.on("error", (e) => console.error("  [provider] error:", e.message));
     p.on("exit", (code) => {
-      if (code !== 0 && code !== 143) console.error(`  [provider] exited unexpectedly (code ${code})`);
+      // null = killed by signal (SIGTERM), 143 = SIGTERM on Linux — both expected on shutdown
+      if (code !== 0 && code !== 143 && code !== null) console.error(`  [provider] exited unexpectedly (code ${code})`);
     });
   }
 
