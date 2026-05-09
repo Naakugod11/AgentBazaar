@@ -393,7 +393,7 @@ AgentBazaar/
 Three students from **42 Heilbronn** built this in 48 hours at Devpack 2026.
 
 - [@naaku_builds](https://x.com/naaku_builds) — Solana program · architecture · pitch
--  — TypeScript SDK · provider agents · x402 integration
+- [@onkeljohannn](https://x.com/onkeljohannn) — TypeScript SDK · provider agents · x402 integration
 -  — Frontend · live on-chain visualization · demo production
 
 ---
