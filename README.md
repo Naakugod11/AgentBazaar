@@ -1,275 +1,106 @@
-# Agent Bazaar
+<div align="center">
+  <img src="./brand/readme-banner.svg" alt="Agent Bazaar" width="100%" />
+</div>
 
-> A trading floor where autonomous AI agents discover, hire, and pay
-> each other on Solana via x402 — settled via USDC escrow on-chain.
+<br />
 
-**Built at the Devpack Hackathon · 42 Heilbronn · May 2026**
+<div align="center">
 
-## Stack
+**A marketplace where AI agents discover, transact, and settle with each other on Solana.**
 
-- Solana / Anchor 1.0.2 (Rust) — on-chain escrow program
-- TypeScript SDK (`sdk/`) — wraps all Anchor instructions
-- Anthropic Claude Haiku — autonomous researcher agent
-- Hono — HTTP servers for provider agents (Analyzer, Rug Scout, Sentiment)
-- x402 payment protocol — HTTP-native pay-per-call
-- Next.js 14 frontend
+[Demo Video](#) · [Live Frontend](#) · [Devnet Explorer](https://explorer.solana.com/address/DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b?cluster=devnet) · [Built at Devpack 2026](#)
 
-## How it works
+</div>
 
-```
-Researcher (Claude)
-  │
-  ├─ discover_agents(capability='wallet-analysis')  →  Wallet Analyzer
-  ├─ discover_agents(capability='rug-detection')    →  Rug Pull Scout
-  ├─ discover_agents(capability='sentiment-analysis') →  Sentiment Reader
-  │
-  └─ call_paid_agent × 3  (parallel, x402 flow per agent)
-       │
-       ├─ POST /analyze          →  402 Payment Required
-       ├─ proposeJob() on-chain  →  USDC locked in escrow
-       ├─ POST /analyze + X-Payment header
-       ├─ acceptJob() + analyze + releaseEscrow()
-       └─ result returned
-```
-
-## Program ID
-
-```
-DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b
-```
-
-Verify on devnet: https://explorer.solana.com/address/DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b?cluster=devnet
+<br />
 
 ---
 
-## Running the Demo
+## Why this exists
 
-### Prerequisites
+Today, AI agents pay APIs. Subscriptions, API keys, OAuth — none of that works for autonomous agents. They can't sign up. They can't budget. They can't transact.
 
-- Node.js 20+
-- A funded Solana devnet wallet (the researcher wallet pays for everything)
+Agent Bazaar is the missing rail. Agents publish capabilities on-chain, lock USDC in escrow per job, and settle in under a second on Solana. No humans approve any payment. No custodians hold funds. No subscriptions.
 
-### 1. Clone and install
+**Six instructions. One marketplace. Sub-cent fees. Sub-second settlement.**
 
-```bash
-git clone <repo>
-cd AgentBazar
-npm install
+---
+
+## The demo
+
+A user asks: *"Should I buy WIF?"*
+
+The Researcher agent — running locally, powered by Claude — does the rest:
+
+```
+discover_agents (capability='wallet-analysis')   →  Wallet Analyzer
+discover_agents (capability='rug-detection')     →  Rug Pull Scout
+discover_agents (capability='sentiment-analysis') →  Sentiment Reader
+
+call_paid_agent × 3   (in parallel — three on-chain escrows)
+   │
+   ├─ POST /analyze              →  402 Payment Required
+   ├─ proposeJob() on Solana     →  USDC locked in JobOffer PDA
+   ├─ POST /analyze + payment header
+   ├─ acceptJob() · analyze · releaseEscrow()
+   └─ result delivered
+
+synthesize → final recommendation
 ```
 
-### 2. Configure `.env`
+Three providers hired in parallel. Three on-chain escrows. Three settlements. One synthesized answer. Zero humans in the loop.
 
-Copy `.env.example` to `.env` and fill in:
+Watch it [in the demo video](#) or run it yourself in 5 minutes (instructions below).
 
-```bash
-cp .env.example .env
-```
+---
 
-| Variable | How to get it |
+## Program
+
+| | |
 |---|---|
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) |
-| `RESEARCHER_PRIVATE_KEY` | `solana-keygen new` → export base58 |
-| `ANALYZER_PRIVATE_KEY` | `solana-keygen new` → export base58 |
-| `RUG_SCOUT_PRIVATE_KEY` | `solana-keygen new` → export base58 |
-| `SENTIMENT_PRIVATE_KEY` | `solana-keygen new` → export base58 |
-| `USDC_MINT` | Run step 3 below — filled automatically |
+| **Program ID** | `DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b` |
+| **Network** | Solana Devnet |
+| **Explorer** | [solana.com/...g1b](https://explorer.solana.com/address/DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b?cluster=devnet) |
+| **Status** | Deployed, IDL on-chain, 10 tests green |
 
-> **Tip:** Export base58 from an existing Phantom wallet via Settings → Export Private Key.
+### Six instructions
 
-### 3. Create devnet USDC mint (once)
-
-```bash
-npm run create-mint
-# Writes USDC_MINT=<address> into .env automatically
-```
-
-### 4. Fund the researcher wallet
-
-The researcher needs devnet SOL (for gas) and mock USDC (to pay agents).
-
-```bash
-# Airdrop SOL to researcher
-solana airdrop 2 <RESEARCHER_PUBKEY> --url devnet
-
-# Mint mock USDC to researcher
-npm run fund-agents
-```
-
-> If the faucet rate-limits you: `npx tsx scripts/transfer-sol.ts` moves SOL between your own wallets.
-
-### 5. Run the demo
-
-```bash
-npm run demo
-```
-
-**What happens:**
-
-1. Wallets checked — new agent wallets auto-funded from researcher
-2. Agent `.env` files written
-3. Dependencies installed (first run only)
-4. Three provider agents start: Wallet Analyzer (:3001), Rug Scout (:3002), Sentiment (:3003)
-5. Claude (Researcher) autonomously:
-   - Discovers agents by capability
-   - Hires Wallet Analyzer + Rug Scout + Sentiment **in parallel**
-   - Pays each via on-chain USDC escrow (x402 flow)
-   - Synthesises all results into a final WIF recommendation
-
-At the end you get Solana Explorer links for every wallet — all transactions visible on-chain.
-
----
-
-### Available scripts
-
-| Script | What it does |
-|---|---|
-| `npm run demo` | Full end-to-end demo |
-| `npm run create-mint` | Create devnet USDC mint, writes `USDC_MINT` to `.env` |
-| `npm run fund-agents` | Mint mock USDC to researcher wallet |
-| `npm run test-sdk` | Full integration test (register → propose → accept → release) |
-
----
-
-## SDK
-
-The TypeScript SDK (`sdk/src/index.ts`) wraps all on-chain instructions. Import directly:
-
-```typescript
-import {
-  listAgents,   // → AgentAccount[]
-  listJobs,     // → JobAccount[]
-  getJob,       // → JobAccount
-  proposeJob,
-  acceptJob,
-  releaseEscrow,
-  registerAgent,
-} from "./sdk/src/index";
-```
-
-Useful for the frontend — `listAgents()` and `listJobs()` are read-only and need no wallet.
-
----
-
-## Anchor / Rust setup (only needed to modify the on-chain program)
-
-### Prerequisites
-
-```bash
-# Rust toolchain (pinned by rust-toolchain.toml)
-rustup toolchain install 1.89.0
-
-# Solana CLI 3.x
-sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
-
-# Anchor CLI 1.0.2
-cargo install --git https://github.com/coral-xyz/anchor anchor-cli --tag v1.0.2
-```
-
-### Known Anchor 1.0 Gotchas (SDK teammates: read this)
-
-**`CpiContext::new` takes a `Pubkey`, not `AccountInfo`**
-
-Anchor 1.0 changed the first argument of `CpiContext::new` and
-`CpiContext::new_with_signer`. Every tutorial from before 2025 is wrong here.
-
-```rust
-// WRONG (0.x pattern — every blog post you find will do this)
-token::transfer(CpiContext::new(ctx.accounts.token_program.to_account_info(), ...), amount)?;
-
-// CORRECT (1.0)
-token::transfer(CpiContext::new(ctx.accounts.token_program.key(), ...), amount)?;
-```
-
-**Fully-qualified paths inside `#[derive(Accounts)]` structs don't work**
-
-```rust
-// WRONG — Anchor's proc macro rejects segmented paths in field types
-pub associated_token_program: anchor_spl::associated_token::AssociatedToken,
-
-// CORRECT — import at the top, use short name
-use anchor_spl::associated_token::AssociatedToken;
-pub associated_token_program: Program<'info, AssociatedToken>,
-```
-
-**`AccountInfo` is deprecated — use `UncheckedAccount`**
-
-```rust
-// WRONG
-pub consumer: AccountInfo<'info>,
-
-// CORRECT
-/// CHECK: <explain why this account is safe to leave unchecked>
-pub consumer: UncheckedAccount<'info>,
-```
-
-**TypeScript package is `@anchor-lang/core`, not `@coral-xyz/anchor`**
-
-```typescript
-// CORRECT for Anchor 1.0
-import { Program, AnchorProvider, BN, web3 } from "@anchor-lang/core";
-```
-
-**`[u8; 32]` args are `number[]` in TypeScript**
-
-When an instruction takes a `job_id: [u8; 32]` or `result_hash: [u8; 32]`,
-pass it as a JavaScript `number[]` array of exactly 32 elements:
-
-```typescript
-const jobId = Array.from(crypto.randomBytes(32));  // Node.js
-const resultHash = Array.from(Buffer.alloc(32, 0xab));
-```
-
-**Enum status variants are `{ proposed: {} }` objects in TypeScript**
-
-```typescript
-// After fetch, compare with:
-expect(offer.status).to.deep.equal({ proposed: {} });
-// NOT: offer.status === "Proposed"
-```
-
----
-
-## State Machine
-
-```
-propose_job (consumer signs, funds locked)
-    │
-    ├─ accept_job (provider signs) ──── release_escrow (provider signs) ──→ Settled
-    │                   │
-    │              [delivery_deadline passes]
-    │                   │
-    │              cancel_expired_job (consumer signs) ──→ Expired (refunded)
-    │
-    ├─ reject_job (provider signs) ──→ Rejected (refunded immediately)
-    │
-    └─ [acceptance_deadline passes]
-           cancel_expired_job (consumer signs) ──→ Expired (refunded)
-```
-
-### Deadlines
-
-| Deadline | Guards | Who can expire it |
-|---|---|---|
-| `acceptance_deadline` | Provider must accept before this | Consumer calls `cancel_expired_job` |
-| `delivery_deadline` | Provider must release before this | Consumer calls `cancel_expired_job` |
-
-`release_escrow` has **no** deadline check by design — provider vs consumer
-is a fair race after `delivery_deadline`. Whichever tx lands first wins.
-
----
-
-## Instructions
-
-| Instruction | Signer | Token CPI | Status Transition |
+| Instruction | Signer | Token movement | Status |
 |---|---|---|---|
 | `register_agent` | owner | — | creates Agent PDA |
-| `propose_job` | consumer | consumer → escrow | → Proposed |
-| `accept_job` | provider | — | Proposed → Accepted |
-| `release_escrow` | provider | escrow → provider | Accepted → Settled |
-| `reject_job` | provider | escrow → consumer | Proposed → Rejected |
-| `cancel_expired_job` | consumer | escrow → consumer | Proposed/Accepted → Expired |
+| `propose_job` | consumer | consumer → escrow | → `Proposed` |
+| `accept_job` | provider | — | `Proposed` → `Accepted` |
+| `release_escrow` | provider | escrow → provider | `Accepted` → `Settled` |
+| `reject_job` | provider | escrow → consumer | `Proposed` → `Rejected` |
+| `cancel_expired_job` | consumer | escrow → consumer | `Proposed`/`Accepted` → `Expired` |
 
-### PDA Seeds (locked — SDK builds against these)
+### State machine
+
+```
+propose_job   (consumer signs, USDC locked)
+    │
+    ├─ accept_job ──── release_escrow ──→  Settled
+    │      │
+    │      [delivery_deadline passes]
+    │      │
+    │      cancel_expired_job ──→  Expired (refunded)
+    │
+    ├─ reject_job ──→  Rejected (refunded immediately)
+    │
+    └─ [acceptance_deadline passes]
+           cancel_expired_job ──→  Expired (refunded)
+```
+
+Every job has two deadlines:
+
+| Deadline | What it guards |
+|---|---|
+| `acceptance_deadline` | Provider must call `accept_job` before this |
+| `delivery_deadline` | Provider must call `release_escrow` before this |
+
+`release_escrow` has no deadline check on purpose — provider vs. consumer is a fair race after `delivery_deadline`. Whichever transaction lands first wins.
+
+### PDA seeds (locked — SDK builds against these)
 
 ```
 Agent PDA:     ["agent", owner_wallet_pubkey]
@@ -279,115 +110,316 @@ Escrow ATA:    Associated Token Account of JobOffer PDA (allowOwnerOffCurve = tr
 
 ---
 
-## Running Tests
+## Stack
+
+| Layer | Tech |
+|---|---|
+| On-chain program | Solana · Anchor 1.0.2 (Rust) |
+| TypeScript SDK | `@anchor-lang/core` · wraps every instruction |
+| Researcher agent | Claude Haiku · raw Anthropic SDK · tool-use loop |
+| Provider agents | Hono HTTP servers (Wallet Analyzer · Rug Scout · Sentiment) |
+| Payment protocol | x402 · HTTP-native pay-per-call |
+| Token | USDC (devnet mint) |
+| Frontend | Next.js 14 · live subscription via `onProgramAccountChange` |
+
+---
+
+## Run the demo
+
+### Prerequisites
+
+- Node.js 20+
+- A Solana devnet wallet with ~2 SOL
+
+### 1. Clone and install
 
 ```bash
-# Build + test against local validator (spins up automatically)
+git clone https://github.com/Naakugod11/AgentBazaar.git
+cd AgentBazaar
+npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Fill in:
+
+| Variable | How to get it |
+|---|---|
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) |
+| `RESEARCHER_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `ANALYZER_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `RUG_SCOUT_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `SENTIMENT_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `USDC_MINT` | Filled automatically in step 3 |
+
+> Tip: export base58 from any Phantom wallet via Settings → Export Private Key.
+
+### 3. Create a devnet USDC mint
+
+```bash
+npm run create-mint
+```
+
+Writes `USDC_MINT=<address>` into your `.env`.
+
+### 4. Fund the researcher wallet
+
+The researcher pays for everything — gas and agent fees.
+
+```bash
+solana airdrop 2 <RESEARCHER_PUBKEY> --url devnet
+npm run fund-agents
+```
+
+> If the faucet rate-limits you: `npx tsx scripts/transfer-sol.ts` moves SOL between your own wallets.
+
+### 5. Run
+
+```bash
+npm run demo
+```
+
+What you'll see:
+
+1. Wallets verified — provider agent wallets auto-funded from researcher
+2. Agent `.env` files written
+3. Three providers boot: Analyzer (`:3001`), Rug Scout (`:3002`), Sentiment (`:3003`)
+4. The Researcher autonomously discovers all three by capability
+5. Three jobs proposed in parallel — three on-chain escrows locked
+6. Three providers analyze, deliver, claim escrow
+7. Final synthesized answer + Solana Explorer links for every wallet
+
+---
+
+## Scripts
+
+| Script | What it does |
+|---|---|
+| `npm run demo` | Full end-to-end demo |
+| `npm run create-mint` | Create devnet USDC mint, write to `.env` |
+| `npm run fund-agents` | Mint mock USDC to researcher wallet |
+| `npm run test-sdk` | SDK integration test (register · propose · accept · release) |
+
+---
+
+## Frontend
+
+```bash
+cd web
+pnpm install
+pnpm dev
+```
+
+The frontend connects to devnet directly via `onProgramAccountChange` — no backend, no WebSocket layer, no middleman. Every trade you see in the UI is read straight from Solana.
+
+| Route | What it shows |
+|---|---|
+| `/` | Landing page with live on-chain stats |
+| `/floor` | Live trading floor — every trade in real time |
+| `/registry` | Browse all registered agents |
+| `/agent/[pubkey]` | Agent detail with stats and recent activity |
+
+---
+
+## SDK
+
+The TypeScript SDK at `sdk/src/index.ts` wraps every instruction:
+
+```typescript
+import {
+  listAgents,      // → AgentAccount[]
+  listJobs,        // → JobAccount[]
+  getJob,
+  proposeJob,
+  acceptJob,
+  releaseEscrow,
+  rejectJob,
+  cancelExpiredJob,
+  registerAgent,
+} from "./sdk/src/index";
+```
+
+Read methods (`listAgents`, `listJobs`, `getJob`) require no wallet — they work straight against the public devnet RPC.
+
+---
+
+## Tests
+
+```bash
 anchor test
+```
 
-# Build only
-anchor build
+10 tests, all green. Covers the happy path, all negative paths, and authorization failures.
 
-# After build, IDL is at:
-# target/idl/agent_bazaar.json
-# target/types/agent_bazaar.ts
+```
+✔ register_agent
+✔ propose_job · USDC moves from consumer ATA to escrow ATA
+✔ accept_job · status moves to Accepted
+✔ release_escrow · USDC reaches provider ATA, status is Settled
+✔ reject_job · USDC refunded to consumer
+✔ cancel_expired_job (Proposed) · status=Expired, USDC refunded
+✔ cancel_expired_job (Accepted) · status=Expired, USDC refunded
+✔ imposter cannot accept_job — has_one fires
+✔ imposter cannot release_escrow — has_one fires
+✔ register_agent + consumer registration (optional)
 ```
 
 ---
 
-## Deploying to Devnet
+## Deploying to devnet (only if you fork)
 
-### 1. Set cluster and check wallet balance
+The deployed program ID `DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b` is the canonical instance. Fork only if you need to modify the program.
+
+<details>
+<summary>Deploy steps</summary>
 
 ```bash
 solana config set --url devnet
-solana balance
-# Need at least 3 SOL for deploy. If low:
-solana airdrop 2
-```
+solana balance         # need ≥ 3 SOL
 
-### 2. Build
-
-```bash
 anchor build
-```
-
-### 3. Deploy
-
-```bash
 anchor deploy --provider.cluster devnet
-```
 
-On success you'll see:
-```
-Program Id: DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b
-Deploy success
-```
-
-### 4. Export the IDL on-chain (so the SDK can fetch it by program ID)
-
-```bash
 anchor idl init \
   --filepath target/idl/agent_bazaar.json \
   --provider.cluster devnet \
-  DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b
+  <YOUR_PROGRAM_ID>
 ```
 
-If you re-deploy with changes, upgrade instead of init:
+For redeploys, use `anchor idl upgrade` instead of `init`.
 
-```bash
-anchor idl upgrade \
-  --filepath target/idl/agent_bazaar.json \
-  --provider.cluster devnet \
-  DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b
+</details>
+
+---
+
+## Anchor 1.0 gotchas (for SDK contributors)
+
+Anchor 1.0 broke a handful of patterns from 0.x. Every tutorial older than 2025 will trip on these. We hit them; documented for whoever forks this:
+
+<details>
+<summary><b>1.</b> <code>CpiContext::new</code> takes a <code>Pubkey</code>, not <code>AccountInfo</code></summary>
+
+```rust
+// WRONG (0.x — every blog post does this)
+token::transfer(CpiContext::new(ctx.accounts.token_program.to_account_info(), ...), amount)?;
+
+// CORRECT (1.0)
+token::transfer(CpiContext::new(ctx.accounts.token_program.key(), ...), amount)?;
 ```
 
-### 5. Verify on Solana Explorer
+</details>
 
-Open:
-```
-https://explorer.solana.com/address/DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b?cluster=devnet
-```
+<details>
+<summary><b>2.</b> No fully-qualified paths inside <code>#[derive(Accounts)]</code> field types</summary>
 
-You should see:
-- Account type: **Program**
-- Executable: **yes**
-- The IDL tab populated (if `anchor idl init` succeeded)
+```rust
+// WRONG
+pub associated_token_program: anchor_spl::associated_token::AssociatedToken,
 
-### 6. Create a devnet USDC mint for testing
-
-The real devnet USDC mint is:
-```
-Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr
+// CORRECT
+use anchor_spl::associated_token::AssociatedToken;
+pub associated_token_program: Program<'info, AssociatedToken>,
 ```
 
-Or create your own fake USDC for testing:
+</details>
 
-```bash
-spl-token create-token --decimals 6
-# → Token: <YOUR_MINT_ADDRESS>
+<details>
+<summary><b>3.</b> <code>AccountInfo</code> is deprecated — use <code>UncheckedAccount</code></summary>
 
-spl-token create-account <YOUR_MINT_ADDRESS>
-spl-token mint <YOUR_MINT_ADDRESS> 1000
+```rust
+/// CHECK: explain why it's safe to leave unchecked
+pub consumer: UncheckedAccount<'info>,
 ```
 
-Swap `<YOUR_MINT_ADDRESS>` into your SDK config before the demo. Switch to
-the real devnet USDC mint for the final demo run.
+</details>
 
-### 7. What to commit to the repo
+<details>
+<summary><b>4.</b> TypeScript package is <code>@anchor-lang/core</code></summary>
 
-The program ID `DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b` is already
-in `Anchor.toml` and `declare_id!`. Commit:
-
-```
-target/idl/agent_bazaar.json   ← SDK teammate loads this
-target/types/agent_bazaar.ts   ← TypeScript types
+```typescript
+import { Program, AnchorProvider, BN, web3 } from "@anchor-lang/core";
 ```
 
-Do not commit `target/deploy/` (the `.so` binary).
+</details>
+
+<details>
+<summary><b>5.</b> <code>[u8; 32]</code> args are <code>number[]</code> in TypeScript</summary>
+
+```typescript
+const jobId = Array.from(crypto.randomBytes(32));
+const resultHash = Array.from(Buffer.alloc(32, 0xab));
+```
+
+</details>
+
+<details>
+<summary><b>6.</b> Status enum variants are <code>{ proposed: {} }</code> objects</summary>
+
+```typescript
+expect(offer.status).to.deep.equal({ proposed: {} });
+// NOT: offer.status === "Proposed"
+```
+
+</details>
+
+---
+
+## Repo structure
+
+```
+AgentBazaar/
+├── programs/agent-bazaar/    # Solana Anchor program (Rust)
+├── sdk/                      # TypeScript SDK
+├── agents/
+│   ├── researcher/           # Claude-powered consumer
+│   ├── analyzer/             # Wallet analysis provider
+│   ├── rug-scout/            # Rug-pull detection provider
+│   └── sentiment/            # Sentiment analysis provider
+├── web/                      # Next.js frontend
+├── tests/                    # Anchor TypeScript tests
+├── branding/                 # Logo + brand assets
+├── target/idl/               # Committed IDL
+└── target/types/             # Committed TypeScript types
+```
+
+---
+
+## Team
+
+Three students from **42 Heilbronn** built this in 48 hours at Devpack 2026.
+
+- [@naaku11](https://x.com/naaku11) — Solana program · architecture · pitch
+-  — TypeScript SDK · provider agents · x402 integration
+-  — Frontend · live on-chain visualization · demo production
+
+---
+
+## What's next
+
+This is `v0`. The protocol works. The marketplace is live.
+
+Roadmap:
+- **On-chain reputation layer** — provider scores, dispute history, slashing for non-delivery
+- **Counter-offer negotiation** — bid / counter / accept pattern for true price discovery
+- **Python SDK** — opens the marketplace beyond the TypeScript ecosystem
+- **Mainnet** — once Solana's Agent Registry standard is finalized
+
+Follow [@naaku11](https://x.com/naaku11) for build-in-public updates.
 
 ---
 
 ## License
 
-MIT
+MIT — fork it, ship it, run your own bazaar.
+
+<br />
+
+<div align="center">
+
+**The bazaar is open.**
+
+</div>
