@@ -29,12 +29,21 @@ const tools: Anthropic.Tool[] = [
   {
     name: "discover_agents",
     description:
-      "Discover all registered AI agents on the Agent Bazaar marketplace. " +
-      "Returns a list of agents with their capabilities, endpoints, and pricing. " +
-      "Use this first to find an appropriate agent for a task.",
+      "Discover AI agents registered on the Agent Bazaar marketplace. " +
+      "Pass a capability to filter to only matching agents. " +
+      "Available capabilities: 'wallet-analysis', 'rug-detection', 'sentiment-analysis'. " +
+      "Returns agents with their name, endpoint, owner pubkey, and price.",
     input_schema: {
       type: "object" as const,
-      properties: {},
+      properties: {
+        capability: {
+          type: "string",
+          description:
+            "Filter agents by capability. Use 'wallet-analysis' for wallet checks, " +
+            "'rug-detection' for rug pull risk, 'sentiment-analysis' for social signals. " +
+            "Omit to get all agents.",
+        },
+      },
       required: [],
     },
   },
@@ -69,24 +78,24 @@ const tools: Anthropic.Tool[] = [
 
 // ─── Tool implementations ─────────────────────────────────────────────────────
 
-async function toolDiscoverAgents(): Promise<string> {
+async function toolDiscoverAgents(capability?: string): Promise<string> {
   const agents = await listAgents();
-  if (agents.length === 0) {
-    return "No agents registered on-chain yet.";
-  }
   const myPubkey = keypair.publicKey.toBase58();
-  const simplified = agents
+  const filtered = agents
     .filter((a: AgentAccount) => a.owner.toBase58() !== myPubkey)
+    .filter((a: AgentAccount) => !capability || a.capability === capability)
     .map((a: AgentAccount) => ({
-      pubkey: a.pubkey.toBase58(),
       owner: a.owner.toBase58(),
       name: a.name,
       capability: a.capability,
       endpoint: a.endpoint,
       priceHintUsdc: (a.priceHint / 1_000_000).toFixed(4),
     }));
-  if (simplified.length === 0) return "No agents available (excluding self).";
-  return JSON.stringify(simplified, null, 2);
+  if (filtered.length === 0)
+    return capability
+      ? `No agents found with capability '${capability}'.`
+      : "No agents available (excluding self).";
+  return JSON.stringify(filtered, null, 2);
 }
 
 async function toolCallPaidAgent(
@@ -193,12 +202,16 @@ async function run() {
 
   const system =
     "You are an AI financial research agent operating on the Solana blockchain. " +
-    "You have access to a decentralised marketplace of AI agents (Agent Bazaar). " +
-    "When asked investment questions, you should: " +
-    "1) Use discover_agents to find a wallet analyzer agent. " +
-    "2) Use call_paid_agent to hire it and get real on-chain wallet analysis. " +
-    "3) Combine the analysis with your own market knowledge to give a final recommendation. " +
-    "Always ground your answer in the actual wallet data you received.";
+    "You have access to Agent Bazaar — a decentralised marketplace of specialised AI agents. " +
+    "Each agent has a capability tag. Match the right capability to the right sub-task:\n" +
+    "  • 'wallet-analysis'   — analyse on-chain wallet holdings and activity\n" +
+    "  • 'rug-detection'     — audit token mint/freeze authority and holder concentration\n" +
+    "  • 'sentiment-analysis'— aggregate social signals for a token\n\n" +
+    "Workflow:\n" +
+    "1) Call discover_agents once per needed capability (e.g. once for 'wallet-analysis', once for 'rug-detection').\n" +
+    "2) If multiple agents match a capability, choose the cheapest or best-described one.\n" +
+    "3) You CAN issue multiple call_paid_agent tool calls in a SINGLE response — they run in parallel. Do this whenever the sub-tasks are independent.\n" +
+    "4) Synthesise all results into a final recommendation grounded in the data you received.";
 
   // Agentic loop: keep calling Claude until stop_reason is 'end_turn'.
   const MAX_ITERATIONS = 10;
@@ -234,43 +247,37 @@ async function run() {
       break;
     }
 
-    // Process tool calls and collect results.
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+    // Execute all tool calls in parallel.
+    const toolUseBlocks = response.content.filter((b) => b.type === "tool_use");
 
-    for (const block of response.content) {
-      if (block.type !== "tool_use") continue;
+    const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
+      toolUseBlocks.map(async (block) => {
+        if (block.type !== "tool_use") return null!;
+        console.log(`[researcher] Tool: ${block.name}`, block.input);
 
-      console.log(`[researcher] Tool: ${block.name}`, block.input);
-
-      let result: string;
-      try {
-        if (block.name === "discover_agents") {
-          result = await toolDiscoverAgents();
-        } else if (block.name === "call_paid_agent") {
-          const inp = block.input as {
-            agentEndpoint: string;
-            agentOwner: string;
-            question: string;
-          };
-          result = await toolCallPaidAgent(
-            inp.agentEndpoint,
-            inp.agentOwner,
-            inp.question
-          );
-        } else {
-          result = `Unknown tool: ${block.name}`;
+        let result: string;
+        try {
+          if (block.name === "discover_agents") {
+            const inp = block.input as { capability?: string };
+            result = await toolDiscoverAgents(inp.capability);
+          } else if (block.name === "call_paid_agent") {
+            const inp = block.input as {
+              agentEndpoint: string;
+              agentOwner: string;
+              question: string;
+            };
+            result = await toolCallPaidAgent(inp.agentEndpoint, inp.agentOwner, inp.question);
+          } else {
+            result = `Unknown tool: ${block.name}`;
+          }
+        } catch (e: unknown) {
+          result = `Error: ${(e as Error).message}`;
+          console.error(`[researcher] Tool ${block.name} failed:`, (e as Error).message);
         }
-      } catch (e: unknown) {
-        result = `Error: ${(e as Error).message}`;
-        console.error(`[researcher] Tool ${block.name} failed:`, (e as Error).message);
-      }
 
-      toolResults.push({
-        type: "tool_result",
-        tool_use_id: block.id,
-        content: result,
-      });
-    }
+        return { type: "tool_result" as const, tool_use_id: block.id, content: result };
+      })
+    );
 
     messages.push({ role: "user", content: toolResults });
   }

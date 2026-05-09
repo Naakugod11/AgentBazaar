@@ -2,12 +2,26 @@ import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
 import { spawn } from "child_process";
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from "@solana/web3.js";
 import bs58 from "bs58";
 
 // ─── Env validation ───────────────────────────────────────────────────────────
 
-const required = ["ANTHROPIC_API_KEY", "RESEARCHER_PRIVATE_KEY", "ANALYZER_PRIVATE_KEY", "USDC_MINT"];
+const required = [
+  "ANTHROPIC_API_KEY",
+  "RESEARCHER_PRIVATE_KEY",
+  "ANALYZER_PRIVATE_KEY",
+  "RUG_SCOUT_PRIVATE_KEY",
+  "SENTIMENT_PRIVATE_KEY",
+  "USDC_MINT",
+];
 const missing = required.filter((k) => !process.env[k]);
 if (missing.length > 0) {
   console.error(`\n  Missing env vars: ${missing.join(", ")}`);
@@ -18,10 +32,14 @@ if (missing.length > 0) {
 const RPC_URL = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const connection = new Connection(RPC_URL, "confirmed");
 
-const researcherKp = Keypair.fromSecretKey(bs58.decode(process.env.RESEARCHER_PRIVATE_KEY!));
-const analyzerKp   = Keypair.fromSecretKey(bs58.decode(process.env.ANALYZER_PRIVATE_KEY!));
+const researcherKp  = Keypair.fromSecretKey(bs58.decode(process.env.RESEARCHER_PRIVATE_KEY!));
+const analyzerKp    = Keypair.fromSecretKey(bs58.decode(process.env.ANALYZER_PRIVATE_KEY!));
+const rugScoutKp    = Keypair.fromSecretKey(bs58.decode(process.env.RUG_SCOUT_PRIVATE_KEY!));
+const sentimentKp   = Keypair.fromSecretKey(bs58.decode(process.env.SENTIMENT_PRIVATE_KEY!));
 
-const ANALYZER_DIR  = path.join(__dirname, "agents/analyzer");
+const ANALYZER_DIR   = path.join(__dirname, "agents/analyzer");
+const RUG_SCOUT_DIR  = path.join(__dirname, "agents/rug-scout");
+const SENTIMENT_DIR  = path.join(__dirname, "agents/sentiment");
 const RESEARCHER_DIR = path.join(__dirname, "agents/researcher");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -48,6 +66,17 @@ function waitForServer(url: string, timeoutMs = 30_000): Promise<void> {
   });
 }
 
+async function ensureSol(from: Keypair, toPubkey: import("@solana/web3.js").PublicKey, minLamports: number) {
+  const balance = await connection.getBalance(toPubkey);
+  if (balance >= minLamports) return;
+  const needed = minLamports - balance;
+  console.log(`  Funding ${toPubkey.toBase58().slice(0, 8)}... (+${(needed / LAMPORTS_PER_SOL).toFixed(3)} SOL)`);
+  const tx = new Transaction().add(
+    SystemProgram.transfer({ fromPubkey: from.publicKey, toPubkey, lamports: needed })
+  );
+  await sendAndConfirmTransaction(connection, tx, [from]);
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -55,22 +84,31 @@ async function main() {
   console.log("║        Agent Bazaar  —  Live Demo        ║");
   console.log("╚══════════════════════════════════════════╝");
 
-  // ── 1. Wallets ────────────────────────────────────────────────────────────
+  // ── 1. Wallets + auto-fund new agents ─────────────────────────────────────
   hr("1 / 5  Wallets");
 
-  const [rSol, aSol] = await Promise.all([
+  const [rSol, aSol, rugSol, sentSol] = await Promise.all([
     connection.getBalance(researcherKp.publicKey),
     connection.getBalance(analyzerKp.publicKey),
+    connection.getBalance(rugScoutKp.publicKey),
+    connection.getBalance(sentimentKp.publicKey),
   ]);
 
-  console.log(`  Researcher  ${researcherKp.publicKey.toBase58()}  (${(rSol / LAMPORTS_PER_SOL).toFixed(3)} SOL)`);
-  console.log(`  Analyzer    ${analyzerKp.publicKey.toBase58()}  (${(aSol / LAMPORTS_PER_SOL).toFixed(3)} SOL)`);
-  console.log(`  USDC mint   ${process.env.USDC_MINT}`);
+  console.log(`  Researcher   ${researcherKp.publicKey.toBase58()}  (${(rSol / LAMPORTS_PER_SOL).toFixed(3)} SOL)`);
+  console.log(`  Analyzer     ${analyzerKp.publicKey.toBase58()}  (${(aSol / LAMPORTS_PER_SOL).toFixed(3)} SOL)`);
+  console.log(`  Rug Scout    ${rugScoutKp.publicKey.toBase58()}  (${(rugSol / LAMPORTS_PER_SOL).toFixed(3)} SOL)`);
+  console.log(`  Sentiment    ${sentimentKp.publicKey.toBase58()}  (${(sentSol / LAMPORTS_PER_SOL).toFixed(3)} SOL)`);
+  console.log(`  USDC mint    ${process.env.USDC_MINT}`);
 
-  if (rSol < 0.05 * LAMPORTS_PER_SOL || aSol < 0.05 * LAMPORTS_PER_SOL) {
-    console.error("\n  Not enough SOL — run: npx tsx scripts/transfer-sol.ts\n");
+  if (rSol < 0.05 * LAMPORTS_PER_SOL) {
+    console.error("\n  Researcher has < 0.05 SOL — run: npx tsx scripts/transfer-sol.ts\n");
     process.exit(1);
   }
+
+  const MIN_SOL = 0.1 * LAMPORTS_PER_SOL;
+  await ensureSol(researcherKp, analyzerKp.publicKey, MIN_SOL);
+  await ensureSol(researcherKp, rugScoutKp.publicKey, MIN_SOL);
+  await ensureSol(researcherKp, sentimentKp.publicKey, MIN_SOL);
 
   // ── 2. Write agent .env files ─────────────────────────────────────────────
   hr("2 / 5  Agent config");
@@ -89,66 +127,86 @@ async function main() {
     AGENT_ENDPOINT: "http://localhost:3001",
     AGENT_NAME: "Wallet Analyzer",
   });
+  writeEnv(path.join(RUG_SCOUT_DIR, ".env"), {
+    ...shared,
+    AGENT_PRIVATE_KEY: process.env.RUG_SCOUT_PRIVATE_KEY!,
+    PORT: "3002",
+    AGENT_ENDPOINT: "http://localhost:3002",
+    AGENT_NAME: "Rug Pull Scout",
+  });
+  writeEnv(path.join(SENTIMENT_DIR, ".env"), {
+    ...shared,
+    AGENT_PRIVATE_KEY: process.env.SENTIMENT_PRIVATE_KEY!,
+    PORT: "3003",
+    AGENT_ENDPOINT: "http://localhost:3003",
+    AGENT_NAME: "Sentiment Reader",
+  });
   writeEnv(path.join(RESEARCHER_DIR, ".env"), {
     ...shared,
     AGENT_PRIVATE_KEY: process.env.RESEARCHER_PRIVATE_KEY!,
-    QUESTION: `Should I buy WIF right now? Analyze my wallet: ${researcherKp.publicKey.toBase58()}`,
+    QUESTION:
+      `Should I buy WIF? Analyze my wallet: ${researcherKp.publicKey.toBase58()} AND check WIF for rug pull risks.`,
   });
 
-  console.log("  agents/analyzer/.env   ✓");
-  console.log("  agents/researcher/.env ✓");
+  console.log("  agents/analyzer/.env    ✓");
+  console.log("  agents/rug-scout/.env   ✓");
+  console.log("  agents/sentiment/.env   ✓");
+  console.log("  agents/researcher/.env  ✓");
 
   // ── 3. Dependencies ───────────────────────────────────────────────────────
   hr("3 / 5  Dependencies");
 
   const { execSync } = await import("child_process");
-  for (const dir of [ANALYZER_DIR, RESEARCHER_DIR]) {
+  for (const dir of [ANALYZER_DIR, RUG_SCOUT_DIR, SENTIMENT_DIR, RESEARCHER_DIR]) {
     if (!fs.existsSync(path.join(dir, "node_modules"))) {
       console.log(`  Installing ${path.basename(dir)}...`);
       execSync("npm install", { cwd: dir, stdio: "pipe" });
     }
-    console.log(`  ${path.basename(dir).padEnd(12)} node_modules ✓`);
+    console.log(`  ${path.basename(dir).padEnd(14)} node_modules ✓`);
   }
 
-  // ── 4. Start Analyzer ─────────────────────────────────────────────────────
-  hr("4 / 5  Analyzer (HTTP server)");
+  // ── 4. Start provider agents ──────────────────────────────────────────────
+  hr("4 / 5  Provider agents (Analyzer · Rug Scout · Sentiment)");
 
-  execSync("lsof -ti:3001 | xargs kill -9 2>/dev/null || true");
+  execSync("lsof -ti:3001,3002,3003 | xargs kill -9 2>/dev/null || true");
 
-  const analyzer = spawn("npx", ["tsx", "src/index.ts"], {
-    cwd: ANALYZER_DIR,
-    stdio: ["ignore", "inherit", "inherit"],
-    env: { ...process.env },
-  });
+  const spawnAgent = (dir: string) =>
+    spawn("npx", ["tsx", "src/index.ts"], {
+      cwd: dir,
+      stdio: ["ignore", "inherit", "inherit"],
+      env: { ...process.env },
+    });
 
-  let analyzerAlive = true;
-  analyzer.on("error", (e) => console.error("  [analyzer] error:", e.message));
-  analyzer.on("exit", (code) => {
-    analyzerAlive = false;
-    // code 143 = SIGTERM from analyzer.kill() below — expected clean shutdown
-    if (code !== 0 && code !== 143) console.error(`  [analyzer] exited unexpectedly (code ${code})`);
-  });
+  const analyzer  = spawnAgent(ANALYZER_DIR);
+  const rugScout  = spawnAgent(RUG_SCOUT_DIR);
+  const sentiment = spawnAgent(SENTIMENT_DIR);
+  const providers = [analyzer, rugScout, sentiment];
 
-  // Clean up analyzer on Ctrl+C so port 3001 is released immediately.
+  let providersAlive = true;
+  for (const p of providers) {
+    p.on("error", (e) => console.error("  [provider] error:", e.message));
+    p.on("exit", (code) => {
+      if (code !== 0 && code !== 143) console.error(`  [provider] exited unexpectedly (code ${code})`);
+    });
+  }
+
   process.on("SIGINT", () => {
-    if (analyzerAlive) analyzer.kill();
+    providersAlive = false;
+    providers.forEach((p) => p.kill());
     process.exit(1);
   });
 
-  console.log("  Waiting for http://localhost:3001/health ...");
-  try {
-    await waitForServer("http://localhost:3001/health");
-    console.log("  Analyzer is up ✓");
-  } catch {
-    analyzer.kill();
-    console.error("  Analyzer did not start — check logs above.");
-    process.exit(1);
-  }
+  console.log("  Waiting for all agents to be ready...");
+  await Promise.all([
+    waitForServer("http://localhost:3001/health").then(() => console.log("  Analyzer     :3001 ✓")),
+    waitForServer("http://localhost:3002/health").then(() => console.log("  Rug Scout    :3002 ✓")),
+    waitForServer("http://localhost:3003/health").then(() => console.log("  Sentiment    :3003 ✓")),
+  ]);
 
   // ── 5. Run Researcher (Claude agent) ─────────────────────────────────────
-  hr("5 / 5  Researcher (Claude + tool-use)");
-  console.log("  Claude will autonomously discover the Analyzer, pay for its");
-  console.log("  service via on-chain escrow, and return a final recommendation.\n");
+  hr("5 / 5  Researcher (Claude + multi-agent + parallel jobs)");
+  console.log("  Claude discovers agents by capability, hires Wallet Analyzer");
+  console.log("  AND Rug Pull Scout in parallel, paying each via on-chain escrow.\n");
 
   const researcher = spawn("npx", ["tsx", "src/index.ts"], {
     cwd: RESEARCHER_DIR,
@@ -161,7 +219,7 @@ async function main() {
     researcher.on("error", reject);
   });
 
-  if (analyzerAlive) analyzer.kill();
+  if (providersAlive) providers.forEach((p) => p.kill());
 
   // ── Done ──────────────────────────────────────────────────────────────────
   console.log("\n╔══════════════════════════════════════════╗");
@@ -169,7 +227,9 @@ async function main() {
   console.log("╚══════════════════════════════════════════╝\n");
   console.log("  Solana Explorer (devnet):");
   console.log(`    Researcher  https://explorer.solana.com/address/${researcherKp.publicKey.toBase58()}?cluster=devnet`);
-  console.log(`    Analyzer    https://explorer.solana.com/address/${analyzerKp.publicKey.toBase58()}?cluster=devnet\n`);
+  console.log(`    Analyzer    https://explorer.solana.com/address/${analyzerKp.publicKey.toBase58()}?cluster=devnet`);
+  console.log(`    Rug Scout   https://explorer.solana.com/address/${rugScoutKp.publicKey.toBase58()}?cluster=devnet`);
+  console.log(`    Sentiment   https://explorer.solana.com/address/${sentimentKp.publicKey.toBase58()}?cluster=devnet\n`);
 }
 
 main().catch((e) => {
