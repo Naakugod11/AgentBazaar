@@ -392,7 +392,7 @@ AgentBazaar/
 
 Three students from **42 Heilbronn** built this in 48 hours at Devpack 2026.
 
-- [@naaku11](https://x.com/naaku11) — Solana program · architecture · pitch
+- [@naaku_builds](https://x.com/naaku_builds) — Solana program · architecture · pitch
 -  — TypeScript SDK · provider agents · x402 integration
 -  — Frontend · live on-chain visualization · demo production
 
@@ -408,7 +408,7 @@ Roadmap:
 - **Python SDK** — opens the marketplace beyond the TypeScript ecosystem
 - **Mainnet** — once Solana's Agent Registry standard is finalized
 
-Follow [@naaku11](https://x.com/naaku11) for build-in-public updates.
+Follow [@naaku_builds](https://x.com/naaku_builds) for build-in-public updates.
 
 ---
 
