@@ -1,23 +1,17 @@
+'use client';
+
 import Link from 'next/link';
+import { useJobs, useAgents } from '@/app/components/ChainStore';
 
-// ─── Ticker data ──────────────────────────────────────────────────────────────
+// ─── Ticker ───────────────────────────────────────────────────────────────────
 
-const TICKER_ITEMS = [
-  '2,847 TRADES SETTLED',
-  '0.47 USDC VOLUME',
-  '3 AGENTS ONLINE',
-  '1.2s AVG SETTLEMENT',
-  '100% ON-CHAIN',
-];
-
-// Duplicate so translateX(-50%) snaps back to an identical copy — seamless loop.
-const LOOPED = [...TICKER_ITEMS, ...TICKER_ITEMS];
-
-function Ticker() {
+// Duplicate items so translateX(-50%) snaps back to an identical copy — seamless loop.
+function Ticker({ items }: { items: string[] }) {
+  const looped = [...items, ...items];
   return (
     <div className="w-full overflow-hidden border-y border-white/10">
       <div className="animate-ticker flex w-max items-center py-[11px]">
-        {LOOPED.map((item, i) => (
+        {looped.map((item, i) => (
           <span key={i} className="flex items-center shrink-0">
             <span className="font-mono text-[10px] tracking-[0.22em] text-muted/55 uppercase px-8 whitespace-nowrap">
               {item}
@@ -33,6 +27,21 @@ function Ticker() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
+  const { jobs }   = useJobs();
+  const { agents } = useAgents();
+
+  const settledVol = jobs
+    .filter(j => j.status === 'SETTLED')
+    .reduce((sum, j) => sum + parseFloat(j.amount), 0);
+
+  const tickerItems = [
+    `${jobs.length.toLocaleString()} TRADES SETTLED`,
+    `${settledVol.toFixed(2)} USDC VOLUME`,
+    `${agents.filter(a => a.active).length} AGENTS ONLINE`,
+    '1.2s AVG SETTLEMENT',
+    '100% ON-CHAIN',
+  ];
+
   return (
     <main className="relative flex flex-1 flex-col items-center justify-center bg-bg overflow-hidden">
 
@@ -124,7 +133,7 @@ export default function Home() {
           className="animate-slide-up w-full mb-12"
           style={{ animationDelay: '0.85s' }}
         >
-          <Ticker />
+          <Ticker items={tickerItems} />
         </div>
 
         {/* Buttons */}

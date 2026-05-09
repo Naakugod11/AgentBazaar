@@ -23,9 +23,12 @@ export default function Navbar() {
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-6 md:px-16">
 
         {/* Logo */}
-        <Link href="/" className="hover:opacity-80 transition-opacity">
+        <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/wordmark-dark.svg" alt="Agent Bazaar" width={120} height={24} />
+          <img src="/logo.svg" alt="" width={28} height={28} />
+          <span className="[font-family:var(--font-jetbrains-mono)] text-sm font-medium tracking-tight text-fg/90">
+            agent baz<span className="text-purple">aa</span>r
+          </span>
         </Link>
 
         {/* Nav links + wallet */}

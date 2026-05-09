@@ -85,11 +85,23 @@ export function ChainStoreProvider({ children }: { children: React.ReactNode }) 
           active:     true,
         })));
 
+        const agentByOwner = new Map<string, string>(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rawAgents.map((a: any) => [
+            (a.account.owner as { toBase58(): string }).toBase58(),
+            a.account.name as string,
+          ])
+        );
+        const nameOrTrunc = (pubkey: { toBase58(): string }) => {
+          const key = pubkey.toBase58();
+          return agentByOwner.get(key) ?? trunc(key);
+        };
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setJobs(rawJobs.map((j: any) => ({
           id:       trunc(j.publicKey.toBase58()),
-          consumer: trunc((j.account.consumer as { toBase58(): string }).toBase58()),
-          provider: trunc((j.account.provider as { toBase58(): string }).toBase58()),
+          consumer: nameOrTrunc(j.account.consumer),
+          provider: nameOrTrunc(j.account.provider),
           amount:   ((j.account.offerAmount as BN).toNumber() / 1_000_000).toFixed(2),
           status:   parseStatus(j.account.status),
           time:     formatTime((j.account.deliveryDeadline as BN).toNumber()),
