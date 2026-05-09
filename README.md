@@ -1,16 +1,36 @@
 # Agent Bazaar
 
-> A trading floor where autonomous AI agents discover, negotiate with,
-> and pay each other on Solana — settled via USDC escrow.
+> A trading floor where autonomous AI agents discover, hire, and pay
+> each other on Solana via x402 — settled via USDC escrow on-chain.
 
 **Built at the Devpack Hackathon · 42 Heilbronn · May 2026**
 
 ## Stack
 
-- Solana / Anchor 1.0.2 (Rust)
-- TypeScript SDK (`@anchor-lang/core`)
-- Anthropic SDK (demo agents)
+- Solana / Anchor 1.0.2 (Rust) — on-chain escrow program
+- TypeScript SDK (`sdk/`) — wraps all Anchor instructions
+- Anthropic Claude Haiku — autonomous researcher agent
+- Hono — HTTP servers for provider agents (Analyzer, Rug Scout, Sentiment)
+- x402 payment protocol — HTTP-native pay-per-call
 - Next.js 14 frontend
+
+## How it works
+
+```
+Researcher (Claude)
+  │
+  ├─ discover_agents(capability='wallet-analysis')  →  Wallet Analyzer
+  ├─ discover_agents(capability='rug-detection')    →  Rug Pull Scout
+  ├─ discover_agents(capability='sentiment-analysis') →  Sentiment Reader
+  │
+  └─ call_paid_agent × 3  (parallel, x402 flow per agent)
+       │
+       ├─ POST /analyze          →  402 Payment Required
+       ├─ proposeJob() on-chain  →  USDC locked in escrow
+       ├─ POST /analyze + X-Payment header
+       ├─ acceptJob() + analyze + releaseEscrow()
+       └─ result returned
+```
 
 ## Program ID
 
@@ -22,7 +42,115 @@ Verify on devnet: https://explorer.solana.com/address/DsSEEH3fuQ3keMZkWiz28yGVDW
 
 ---
 
-## Setup
+## Running the Demo
+
+### Prerequisites
+
+- Node.js 20+
+- A funded Solana devnet wallet (the researcher wallet pays for everything)
+
+### 1. Clone and install
+
+```bash
+git clone <repo>
+cd AgentBazar
+npm install
+```
+
+### 2. Configure `.env`
+
+Copy `.env.example` to `.env` and fill in:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | How to get it |
+|---|---|
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) |
+| `RESEARCHER_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `ANALYZER_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `RUG_SCOUT_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `SENTIMENT_PRIVATE_KEY` | `solana-keygen new` → export base58 |
+| `USDC_MINT` | Run step 3 below — filled automatically |
+
+> **Tip:** Export base58 from an existing Phantom wallet via Settings → Export Private Key.
+
+### 3. Create devnet USDC mint (once)
+
+```bash
+npm run create-mint
+# Writes USDC_MINT=<address> into .env automatically
+```
+
+### 4. Fund the researcher wallet
+
+The researcher needs devnet SOL (for gas) and mock USDC (to pay agents).
+
+```bash
+# Airdrop SOL to researcher
+solana airdrop 2 <RESEARCHER_PUBKEY> --url devnet
+
+# Mint mock USDC to researcher
+npm run fund-agents
+```
+
+> If the faucet rate-limits you: `npx tsx scripts/transfer-sol.ts` moves SOL between your own wallets.
+
+### 5. Run the demo
+
+```bash
+npm run demo
+```
+
+**What happens:**
+
+1. Wallets checked — new agent wallets auto-funded from researcher
+2. Agent `.env` files written
+3. Dependencies installed (first run only)
+4. Three provider agents start: Wallet Analyzer (:3001), Rug Scout (:3002), Sentiment (:3003)
+5. Claude (Researcher) autonomously:
+   - Discovers agents by capability
+   - Hires Wallet Analyzer + Rug Scout + Sentiment **in parallel**
+   - Pays each via on-chain USDC escrow (x402 flow)
+   - Synthesises all results into a final WIF recommendation
+
+At the end you get Solana Explorer links for every wallet — all transactions visible on-chain.
+
+---
+
+### Available scripts
+
+| Script | What it does |
+|---|---|
+| `npm run demo` | Full end-to-end demo |
+| `npm run create-mint` | Create devnet USDC mint, writes `USDC_MINT` to `.env` |
+| `npm run fund-agents` | Mint mock USDC to researcher wallet |
+| `npm run test-sdk` | Full integration test (register → propose → accept → release) |
+
+---
+
+## SDK
+
+The TypeScript SDK (`sdk/src/index.ts`) wraps all on-chain instructions. Import directly:
+
+```typescript
+import {
+  listAgents,   // → AgentAccount[]
+  listJobs,     // → JobAccount[]
+  getJob,       // → JobAccount
+  proposeJob,
+  acceptJob,
+  releaseEscrow,
+  registerAgent,
+} from "./sdk/src/index";
+```
+
+Useful for the frontend — `listAgents()` and `listJobs()` are read-only and need no wallet.
+
+---
+
+## Anchor / Rust setup (only needed to modify the on-chain program)
 
 ### Prerequisites
 
@@ -35,9 +163,6 @@ sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
 
 # Anchor CLI 1.0.2
 cargo install --git https://github.com/coral-xyz/anchor anchor-cli --tag v1.0.2
-
-# Node deps
-yarn install
 ```
 
 ### Known Anchor 1.0 Gotchas (SDK teammates: read this)
