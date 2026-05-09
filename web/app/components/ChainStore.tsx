@@ -104,7 +104,7 @@ export function ChainStoreProvider({ children }: { children: React.ReactNode }) 
           provider: nameOrTrunc(j.account.provider),
           amount:   ((j.account.offerAmount as BN).toNumber() / 1_000_000).toFixed(2),
           status:   parseStatus(j.account.status),
-          time:     formatTime((j.account.deliveryDeadline as BN).toNumber()),
+          time:     formatTime((j.account.acceptanceDeadline as BN).toNumber() - 120),
         })));
       } catch (err) {
         console.error('[ChainStore] fetch error:', err);
