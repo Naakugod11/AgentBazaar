@@ -146,13 +146,17 @@ async function toolCallPaidAgent(
   const jobId = crypto.randomBytes(32);
   const now = Math.floor(Date.now() / 1000);
 
+  const ACCEPTANCE_WINDOW = 120;
+  // Delivery must be strictly after acceptance — add buffer if agent's timeout is too short.
+  const deliveryWindow = Math.max(offer.maxTimeoutSeconds, ACCEPTANCE_WINDOW + 60);
+
   const { jobPda, signature } = await proposeJob({
     signer: keypair,
     providerWallet,
     jobId,
     amount: amountUsdc,
-    acceptanceDeadline: now + 120,
-    deliveryDeadline: now + offer.maxTimeoutSeconds,
+    acceptanceDeadline: now + ACCEPTANCE_WINDOW,
+    deliveryDeadline: now + deliveryWindow,
     usdcMint,
   });
 
