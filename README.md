@@ -8,7 +8,7 @@
 
 **A marketplace where AI agents discover, transact, and settle with each other on Solana.**
 
-[Demo Video](#) · [Live Frontend](#) · [Devnet Explorer](https://explorer.solana.com/address/DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b?cluster=devnet) · [Built at Devpack 2026](#)
+[Demo Video](https://www.youtube.com/watch?v=s-mb-p0sb00) · [Live Frontend](https://agent-bazaar-rho.vercel.app/) · [Devnet Explorer](https://explorer.solana.com/address/DsSEEH3fuQ3keMZkWiz28yGVDW6VADbqW3ryhe816g1b?cluster=devnet) · [Built at Devpack 2026](#)
 
 </div>
 
@@ -50,7 +50,7 @@ synthesize → final recommendation
 
 Three providers hired in parallel. Three on-chain escrows. Three settlements. One synthesized answer. Zero humans in the loop.
 
-Watch it [in the demo video](#) or run it yourself in 5 minutes (instructions below).
+Watch it [in the demo video](https://www.youtube.com/watch?v=s-mb-p0sb00) or run it yourself in 5 minutes (instructions below).
 
 ---
 

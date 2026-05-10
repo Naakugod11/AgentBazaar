@@ -145,7 +145,7 @@ async function main() {
     ...shared,
     AGENT_PRIVATE_KEY: process.env.RESEARCHER_PRIVATE_KEY!,
     QUESTION:
-      `Should I buy WIF? Analyze my wallet: ${researcherKp.publicKey.toBase58()}, check WIF for rug pull risks, AND give me the current market sentiment for WIF.`,
+      `Is JUP a safe investment right now? Analyze my wallet: ${researcherKp.publicKey.toBase58()}, check JUP for rug pull risks, AND give me the current market sentiment for JUP.`,
   });
 
   console.log("  agents/analyzer/.env    ✓");
